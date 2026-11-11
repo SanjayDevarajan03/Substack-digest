@@ -1,7 +1,0 @@
-.env
-token.json
-client_secret_*.json
-node_modules
-node_modules/
-dist/
-build/
