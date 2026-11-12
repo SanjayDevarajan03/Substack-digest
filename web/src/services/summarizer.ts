@@ -1,9 +1,11 @@
 import type { ArticleResult } from "./articleParser";
 import Groq from "groq-sdk";
 
-const groq = new Groq({
-    apiKey: process.env.GROQ_API_KEY,
-});
+
+function getGroqClient() {
+    return new Groq({apiKey: process.env.GROQ_API_KEY})
+}
+
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export interface SummaryResult {
@@ -68,7 +70,7 @@ async function summaryWithRetry(article: string | undefined) {
     const maxAttempts = 3;
     while (attempts < maxAttempts) {
         try {
-            const chatCompletion = await groq.chat.completions.create({
+            const chatCompletion = await getGroqClient().chat.completions.create({
                 messages: [
                     {
                         role: "user",
