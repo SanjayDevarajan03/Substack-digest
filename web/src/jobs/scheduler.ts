@@ -86,7 +86,11 @@ export async function buildCronExpression(
             ).catch(console.error);
             //const timestamp = new Date().toISOString();
             //console.log(`[${timestamp}] Cron job executed successfully.`);
-        });
+        
+        }, {
+            timezone: 'America/New_York',
+        }
+    );
         task.start();
         activeTasks.set(email, task);
         return task;
@@ -105,7 +109,9 @@ export async function buildCronExpression(
                     user.email,
                     new Date(Date.now() + 60 * 1000),
                 ).catch(console.error);
-            },
+            }, {
+                timezone: 'America/New_York',
+            }
         );
 
         task.start();
@@ -144,6 +150,7 @@ export async function buildCronExpression(
                     today.getMonth() + 1,
                     today.getFullYear(),
                 );
+                
                 const scheduledDay = Math.min(clean_date, currentDaysInMonth);
                 if (today.getDate() === scheduledDay) {
                     runDigestForUser(
@@ -151,7 +158,9 @@ export async function buildCronExpression(
                         new Date(Date.now() + 60 * 1000),
                     ).catch(console.error);
                 }
-            },
+            }, {
+                timezone: 'America/New_York',
+            }
         );
         task.start();
         activeTasks.set(email, task);

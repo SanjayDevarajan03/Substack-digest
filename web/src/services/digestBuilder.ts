@@ -38,6 +38,9 @@ export function matchesCadence(
     today: Date,
 ): boolean {
     // the same date-string-building + if/else logic that's currently inline
+    const oneDayAgo = new Date(today);
+    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+
     const oneWeekAgo = new Date(today);
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
@@ -50,7 +53,7 @@ export function matchesCadence(
 
     const newpubDate1 = new Date(pubDate);
     if (cadence.toLowerCase() === "daily") {
-        return newpubDate1.toDateString() === today.toDateString();
+        return newpubDate1 > oneDayAgo && newpubDate1 <= today;
     }
     if (cadence.toLowerCase() === "weekly") {
         return newpubDate1 > oneWeekAgo && newpubDate1 <= today;
