@@ -5,23 +5,12 @@ import DigestEmail from "../emails/DigestEmail";
 import { createElement } from "react";
 import { render } from "@react-email/render";
 import { google, Auth } from "googleapis";
-import path from "path";
-import fs from "fs/promises";
-
-//const resend = new Resend(process.env.RESEND_API_KEY);
-//const CREDENTIALS_PATH = path.join(process.cwd(), "client_secret_672796307658-df7bvrsfhje76u7b1539ji6kiun25qu5.apps.googleusercontent.com.json")
-//const content = await fs.readFile(CREDENTIALS_PATH, "utf8");
-//const token = JSON.parse(content);
-const TOKEN_PATH = path.join(process.cwd(), "token.json");
-//const auth_client
 
 async function loadAuthClient() {
-    const content = await fs.readFile(TOKEN_PATH, "utf8");
-    const credentials = JSON.parse(content);
     return new Auth.UserRefreshClient({
-        clientId: credentials.client_id,
-        clientSecret: credentials.client_secret,
-        refreshToken: credentials.refresh_token,
+        clientId: process.env.GMAIL_CLIENT_ID,
+        clientSecret: process.env.GMAIL_CLIENT_SECRET,
+        refreshToken: process.env.GMAIL_REFRESH_TOKEN,
     });
 }
 
