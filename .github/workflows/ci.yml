@@ -28,4 +28,6 @@ jobs:
       
       - name: Run tests
         working-directory: web
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: npx vitest run

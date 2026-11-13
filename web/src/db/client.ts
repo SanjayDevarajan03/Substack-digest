@@ -15,7 +15,7 @@ import * as schema from "./schema";
 import path from "path";
 
 const sqlite = new Database(
-    path.join(process.cwd(), "src/db/digest.db"),
+    path.join(process.cwd(), "data/digest.db"),
 );
 
 export const db = drizzle(sqlite, { schema });

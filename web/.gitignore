@@ -36,7 +36,7 @@ yarn-error.log*
 # google oauth secrets / sqlite data
 token.json
 client_secret_*.json
-src/db/digest.db
+data/digest.db
 
 # vercel
 .vercel

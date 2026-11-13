@@ -5,7 +5,7 @@ export default defineConfig({
     out: "./src/db/migrations",
     dialect: "sqlite",
     dbCredentials: {
-        url: "./src/db/digest.db",
+        url: "./data/digest.db",
     },
 });*/
 
@@ -16,6 +16,6 @@ export default defineConfig({
     out: "./src/db/migrations",
     dialect: "sqlite",
     dbCredentials: {
-        url: "./src/db/digest.db",
+        url: "./data/digest.db",
     },
 });
