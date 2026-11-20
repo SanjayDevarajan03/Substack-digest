@@ -1,0 +1,1 @@
+import { getArticleContent } from "./articleParser";

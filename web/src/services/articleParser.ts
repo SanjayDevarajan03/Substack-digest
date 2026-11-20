@@ -7,6 +7,7 @@ export interface ArticleResult {
     link: string;
     pubDate: string | undefined;
     content: string | undefined;
+
 }
 
 async function getHTML(url: string): Promise<string> {
@@ -94,29 +95,69 @@ async function batch_links<T>(items: T[] | undefined): Promise<T[][]> {
 }
 
 export async function getAllArticles(
-    handles: string[] = [],
+    handle: string,
+    cadence: string
 ): Promise<ArticleResult[]> {
-    const feedData = await feedFetcher(handles);
+    const MS_PER_24_HOURS = 24 * 60 * 60 * 1000;
+    const feedData = await feedFetcher(handle);
+    
     // Keep link + pubDate paired together (instead of extracting a bare
     // links array) so both survive alongside the fetched content below —
     // downstream callers (summarizer, digestBuilder) need all three and
     // shouldn't have to re-fetch the feed just to get pubDate/link back.
     // rssContent travels alongside link/pubDate so getArticleContent can
     // fall back to it if the full-page scrape fails.
-    const linkedItems = feedData.flatMap((item) =>
+    let linkedItems = feedData.flatMap((item) =>
         item.link
             ? [
-                  {
-                      link: item.link,
-                      pubDate: item.pubDate,
-                      rssContent: item.content,
-                  },
-              ]
+                { 
+                    link: item.link,
+                    pubDate: item.pubDate,
+                    rssContent: item.content,
+                },
+            ]
             : [],
     );
 
-    const batches = await batch_links(linkedItems);
+    const nowMs: number = Date.now();
 
+    const twentyFourHoursAgoMs: number = nowMs - MS_PER_24_HOURS
+    //const cutoffMs = new Date(twentyFourHoursAgoMs);
+    if (cadence.trim().toLowerCase() === "daily") {
+        linkedItems = linkedItems.filter((item) => {
+            if (!item.pubDate) return false;
+            const pubDateMs = new Date(item.pubDate).getTime();
+            return pubDateMs >= twentyFourHoursAgoMs && pubDateMs <= nowMs;
+        });
+    }
+
+    const sevenDaysAgoMs: number = nowMs - (7 * MS_PER_24_HOURS)
+    if (cadence.trim().toLowerCase() === "weekly") {
+        linkedItems = linkedItems.filter((item) => {
+            if (!item.pubDate) return false;
+            const pubDateMs = new Date(item.pubDate).getTime();
+            return pubDateMs >= sevenDaysAgoMs && pubDateMs <= nowMs;
+        });
+    }
+
+    const today = new Date();
+    const lastMonthDate = new Date(today);
+    lastMonthDate.setUTCMonth(lastMonthDate.getUTCMonth() - 1);
+    if (lastMonthDate.getUTCDate() !== today.getUTCDate()) {
+        lastMonthDate.setUTCDate(0);
+    }
+    const lastMonthMs: number = lastMonthDate.getTime();
+
+    if (cadence.trim().toLowerCase() === "monthly") {
+        linkedItems = linkedItems.filter((item) => {
+            if (!item.pubDate) return false;
+            const pubDateMs = new Date(item.pubDate).getTime();
+            return pubDateMs >= lastMonthMs && pubDateMs <= nowMs;
+
+        })
+    }
+
+    const batches = await batch_links(linkedItems);
     const allArticles: ArticleResult[] = [];
 
     for (const batch of batches) {
@@ -130,3 +171,5 @@ export async function getAllArticles(
     }
     return allArticles;
 }
+
+

@@ -1,10 +1,12 @@
 //import { Resend } from 'resend';
 import { digestBuilder } from "./digestBuilder";
-import { isValidHandle } from "./feedFetcher";
 import DigestEmail from "../emails/DigestEmail";
 import { createElement } from "react";
 import { render } from "@react-email/render";
 import { google, Auth } from "googleapis";
+import { subscriptions } from "../db/schema";
+import { db } from "../db/client";
+import { and, eq } from "drizzle-orm";
 
 async function loadAuthClient() {
     return new Auth.UserRefreshClient({
@@ -16,9 +18,8 @@ async function loadAuthClient() {
 
 export async function emailSender(
     email: string,
-    handles: string[] = [],
     cadence: string,
-    scheduledDate: Date,
+    scheduledDate: Date
 ) {
     const today = new Date();
     if (Number.isNaN(scheduledDate.getTime()) || scheduledDate <= today) {
@@ -31,22 +32,15 @@ export async function emailSender(
         return;
     }
 
-    //const input_rl = readline.createInterface({input, output});
-    //const handle: string = await input_rl.question("Enter the handles from which you want the digest?")
-    for (const handle of handles) {
-        const valid_handle = await isValidHandle(handle);
-        if (valid_handle === false) {
-            console.log(`${handle} is invalid. Please enter a valid handle`);
-            continue;
-        }
-    }
-
+    
+    // Handles are validated when a subscription is saved (models/subscripitions.ts)
+    // and digestBuilder reads them from the subscriptions table itself.
     let articles;
     try {
-        articles = await digestBuilder(handles, cadence);
+        articles = await digestBuilder(email, cadence);
     } catch (error) {
         console.error(
-            `emailSender: skipping send to ${email} - failed to build digest for "${handles}":`,
+            `emailSender: skipping send to ${email} - failed to build digest`,
             error,
         );
         return;
@@ -61,7 +55,7 @@ export async function emailSender(
 
     const rawMessage = [
         `To: ${email}`,
-        "Subject: Substack Digest",
+        "Subject: Readloop Digest",
         "Content-Type: text/html; charset=utf-8",
         "",
         htmlBody,
@@ -74,7 +68,33 @@ export async function emailSender(
 
     const response = await gmail.users.messages.send({
         userId: "me",
-        requestBody: { raw: encodedEmail },
+        requestBody: { raw: encodedEmail } ,
     });
+    if (response.data.id) {
+        const sentMessage = await gmail.users.messages.get({
+            userId: "me",
+            id: response.data.id,
+            format: "minimal"
+        })
+    
+        const sentAt = new Date(Number(sentMessage.data.internalDate));
+        const handles = await db
+        .select({ handle: subscriptions.handle })
+        .from(subscriptions)
+        .where(eq(subscriptions.userEmail, email));
+        for (const { handle } of handles) {
+            await db
+            .update(subscriptions)
+            .set({ lastSentAt: sentAt })
+            .where(
+                and(
+                    eq(subscriptions.userEmail, email),
+                    eq(subscriptions.cadence, cadence),
+                    eq(subscriptions.handle, handle)
+                )
+            );
+        }
+       
+    }
     console.log("Email sent:", response.data.id);
 }

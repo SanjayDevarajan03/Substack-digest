@@ -21,3 +21,8 @@ fs.mkdirSync(dataDir, { recursive: true });
 const sqlite = new Database(path.join(dataDir, "digest.db"));
 
 export const db = drizzle(sqlite, { schema });
+
+// The transaction object Drizzle passes into db.transaction((tx) => ...).
+// better-sqlite3 transactions are synchronous: no await inside, end each
+// query with .run() / .all() / .get().
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];

@@ -15,21 +15,12 @@ export async function runDigestForUser(email: string, scheduledDate: Date) {
         console.log("Invalid user.");
         return;
     }
-    if (!user.email || !user.handles || user.handles.length === 0) {
-        console.log("Incomplete user settings, skipping digest.");
-        return;
-    }
 
     try {
-        await emailSender(
-            user.email,
-            user.handles,
-            user.cadence,
-            scheduledDate,
-        );
+        await emailSender(user.email, user.cadence, scheduledDate);
     } catch (error) {
         console.error(
-            `runDigestForUser: digest run failed for ${user.email} (${user.handles}):`,
+            `runDigestForUser: digest run failed for ${user.email}`,
             error,
         );
     }

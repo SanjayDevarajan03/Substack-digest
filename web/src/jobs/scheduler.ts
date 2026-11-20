@@ -16,6 +16,15 @@ function getDaysInMonth(monthNumber: number, year: number): number {
     return new Date(year, monthNumber, 0).getDate();
 }
 
+export function cancelSchedule(email: string) {
+    const task = activeTasks.get(email);
+    if (task) {
+        task.stop();
+        activeTasks.delete(email);
+    }
+    
+}
+
 export async function buildCronExpression(
     email: string,
     cadence: string,
@@ -24,9 +33,7 @@ export async function buildCronExpression(
     month: string,
     dateOfMonth: string,
 ) {
-    if (activeTasks.get(email)) {
-        activeTasks.get(email)?.stop();
-    }
+    cancelSchedule(email);
     const result = await db.select().from(users).where(eq(users.email, email));
     const user = result[0];
     if (!user) {

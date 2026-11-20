@@ -1,0 +1,17 @@
+{
+  "name": "substack-digest",
+  "private": true,
+  "description": "Root shortcuts: every script runs inside web/, so npm commands work from either folder.",
+  "scripts": {
+    "dev": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "start": "npm --prefix web run start",
+    "lint": "npm --prefix web run lint",
+    "typecheck": "npm --prefix web run typecheck",
+    "test": "cd web && npx vitest run",
+    "check": "npm run typecheck && npm test",
+    "deploy": "npm --prefix web run deploy",
+    "pm2:stop": "npm --prefix web run pm2:stop",
+    "pm2:logs": "npm --prefix web run pm2:logs"
+  }
+}

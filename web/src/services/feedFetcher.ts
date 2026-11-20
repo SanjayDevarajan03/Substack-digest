@@ -85,29 +85,26 @@ export async function isValidHandle(handle: string): Promise<boolean> {
 // Throws FeedFetchError on failure instead of swallowing it, so callers can
 // tell "feed fetched but has no new articles" (empty array) apart from
 // "couldn't fetch the feed at all" (and log/report that distinctly).
-export async function feedFetcher(handles: string[] = []): Promise<FeedItem[]> {
+export async function feedFetcher(handle: string): Promise<FeedItem[]> {
     const allFeedItems: FeedItem[] = [];
-    for (const handle of handles) {
-        if (!handle) {
-            console.log("No handle.");
-            continue;
-        }
-        try {
-            const feed = await parser.parseURL(getFeedUrl(handle));
-            const feedItems: FeedItem[] = feed.items.map((item) => ({
-                handle: handle,
-                title: item.title,
-                link: item.link,
-                pubDate: item.pubDate,
-                content: item.content,
-            }));
-            allFeedItems.push(...feedItems);
-        } catch (error) {
-            console.log(handle, error);
-            continue;
-        }
+    if (!handle) {
+        console.error("No handle.");
+    }
+    try {
+        const feed = await parser.parseURL(getFeedUrl(handle));
+        const feedItems: FeedItem[] = feed.items.map((item) => ({
+            handle: handle,
+            title: item.title,
+            link: item.link,
+            pubDate: item.pubDate,
+            content: item.content,
+        }));
+        allFeedItems.push(...feedItems);
+    } catch (error) {
+        console.log(handle, error);
     }
     return allFeedItems;
 }
+
 
 //console.log(await feedFetcher(["demishassabis"]));

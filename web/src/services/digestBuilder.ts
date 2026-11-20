@@ -1,42 +1,46 @@
 import { summarizeArticles } from "./summarizer";
-import type { SummaryResult } from "./summarizer";
 import { getAllArticles } from "./articleParser";
+import { subscriptions, users } from "../db/schema";
+import { db } from "../db/client";
+import type { ArticleResult } from "./articleParser";
+import { eq } from "drizzle-orm";
+import type { SummaryResult } from "./summarizer";
+
 
 export async function digestBuilder(
-    handles: string[] = [],
-    cadence: string,
+    email: string, cadence: string
 ): Promise<SummaryResult[]> {
-    if (!cadence || cadence === "") {
-        console.log("Please enter a cadence.");
-        return [];
-    }
-
     const todayDate = new Date();
+    const result: ArticleResult[] = [];
+    const rows = await db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.userEmail, email));
 
     // Fetch raw articles (cheap — RSS + scrape, no Groq calls yet) and
-    // filter by cadence BEFORE summarizing, so Groq is only ever called on
-    // articles that will actually end up in the digest.
-    const articles = await getAllArticles(handles);
-    console.log(articles.length);
-    console.log('Handles', handles);
-
-    const matchingArticles = articles.filter((article) => {
-        if (!article.pubDate) return false;
-        // Pass the real timestamp through untouched — weekly/monthly need
-        // full time precision for their rolling windows, and daily derives
-        // its own calendar date from this via toDateString() internally.
-        return matchesCadence(article.pubDate, cadence, todayDate);
-    });
-    console.log(matchingArticles.length);
-    console.log(matchingArticles.map((a) => a.pubDate));
-    return await summarizeArticles(matchingArticles);
+    // filter by each subscription's own cadence BEFORE summarizing, so Groq
+    // is only ever called on articles that will actually end up in the digest.
+    for (const subscription of rows) {
+        const articles = await getAllArticles(subscription.handle, cadence);
+        const matchingArticles = articles.filter(
+            (article) =>
+                article.pubDate &&
+                matchesCadence(article.pubDate, subscription.cadence,todayDate, subscription.lastSentAt),
+        );
+        result.push(...matchingArticles);
+    }
+    return await summarizeArticles(result);
 }
 
 export function matchesCadence(
     pubDate: string,
     cadence: string,
     today: Date,
-): boolean {
+    lastSentAt: Date | null
+) {
+    if (!pubDate) {
+        throw new Error("Invalid publishing date");
+    }
     // the same date-string-building + if/else logic that's currently inline
     const oneDayAgo = new Date(today);
     oneDayAgo.setDate(oneDayAgo.getDate() - 1);
@@ -52,14 +56,46 @@ export function matchesCadence(
     }
 
     const newpubDate1 = new Date(pubDate);
-    if (cadence.toLowerCase() === "daily") {
-        return newpubDate1 > oneDayAgo && newpubDate1 <= today;
-    }
-    if (cadence.toLowerCase() === "weekly") {
-        return newpubDate1 > oneWeekAgo && newpubDate1 <= today;
-    }
-    if (cadence.toLowerCase() === "monthly") {
-        return newpubDate1 >= lastMonthDate && newpubDate1 <= today;
+    //const pubDateMs = newpubDate1 instanceof Date ? newpubDate1.getTime() : newpubDate1
+    if (lastSentAt) {
+        if (cadence.trim().toLowerCase() === "daily" || cadence.trim().toLowerCase() === "weekly" || cadence.trim().toLowerCase() === "monthly") {
+            return newpubDate1 > lastSentAt && newpubDate1 <= today;
+        }
+    } else {
+        if (cadence.trim().toLowerCase() === "daily") {
+            return newpubDate1 > oneDayAgo && newpubDate1 <= today;
+        }
+        if (cadence.trim().toLowerCase() === "weekly") {
+            return newpubDate1 > oneWeekAgo && newpubDate1 <= today;
+        }
+        if (cadence.trim().toLowerCase() === "monthly") {
+            return newpubDate1 >= lastMonthDate && newpubDate1 <= today;
+        }
+        return false;
     }
     return false;
 }
+
+
+/*const today  = new Date();
+console.log(await matchesCadence("sanjay.devarajana02@gmail.com", "November 13th 2026","monthly", today))*/
+
+/*const rows = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, "sanjay.devarajan02@gmail.com"));
+
+
+const rows1 = await db
+        .select()
+        .from(subscriptions)
+        .where(eq(subscriptions.userEmail, "sanjay.devarajan02@gmail.com"));
+
+
+for (const row1 of rows1) {
+    console.log(row1);
+}
+
+for (const row of rows) {
+    console.log(row);
+}*/

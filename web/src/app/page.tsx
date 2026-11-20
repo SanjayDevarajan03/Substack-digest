@@ -8,7 +8,7 @@ export default function InputForm() {
     const { data: session, status } = useSession();
     const [email, setEmail] = useState<string>("");
     const [errorMessage, setErrorMessage] = useState<string>("");
-    const [handles, setHandles] = useState<string>("");
+    const [handle, setHandle] = useState<string>("");
     const [cadence, setCadence] = useState<string>("");
     const [time, setTime] = useState<string>("");
     const [day, setDay] = useState<string>("");
@@ -47,7 +47,7 @@ export default function InputForm() {
     };
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setHandles(e.target.value);
+        setHandle(e.target.value);
     };
 
     const timeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,15 +125,15 @@ export default function InputForm() {
         );
     }
 
-    const handleList = handles
+    const handleList = [...new Set(handle.toLowerCase()
         .split(",")
         .map((h) => h.trim())
-        .filter(Boolean);
+        .filter(Boolean))];
 
     const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
         e.preventDefault();
         setErrorMessage("");
-        if (!email || !handles || !cadence || !time) {
+        if (!email || !handle || !cadence || !time) {
             console.log("Please enter the missing fields");
             return;
         }
@@ -151,7 +151,7 @@ export default function InputForm() {
             const existing = await checkResponse.json();
             const payload = {
                 email,
-                handles: handleList,
+                subscriptions: handleList.map((h) => ({ handle: h, cadence })),
                 cadence,
                 time,
                 day,
@@ -239,7 +239,7 @@ export default function InputForm() {
                             </label>
                             <input
                                 type="text"
-                                value={handles}
+                                value={handle}
                                 onChange={handleChange}
                                 placeholder="e.g. stratechery, platformer"
                                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500"

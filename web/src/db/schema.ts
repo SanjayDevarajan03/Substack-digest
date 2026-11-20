@@ -1,4 +1,4 @@
-import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
 
 export const users = sqliteTable("users", {
     email: text("email").primaryKey(),
@@ -9,5 +9,18 @@ export const users = sqliteTable("users", {
     month: text("month"),
     dateOfMonth: text("date_of_month"),
 });
-//Hello
-//Hello
+
+export const subscriptions = sqliteTable(
+    "subscriptions", {
+        userEmail: text("email").notNull(),
+        handle: text("handle").notNull(),
+        cadence: text("cadence").notNull(),
+        // null = this source has never been included in a sent digest.
+        lastSentAt: integer("last_sent_at", { mode: "timestamp" }),
+    },
+    (table) => [
+        primaryKey({
+            columns: [table.userEmail, table.handle]
+        }),
+    ]
+)

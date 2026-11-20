@@ -1,5 +1,5 @@
 import { users } from "../db/schema";
-import { db } from "../db/client";
+import { db, type Tx } from "../db/client";
 import { eq } from "drizzle-orm";
 import { isValidHandle } from "../services/feedFetcher";
 
@@ -8,6 +8,11 @@ export class HandleValidationError extends Error {}
 export class DayValidationError extends Error {}
 export class MonthValidationError extends Error {}
 export class DateOfMonthValidationError extends Error {}
+export class CadenceValidationError extends Error {}
+
+// Cadences for when the whole digest email goes out. "immediate" is a
+// per-writer option only (see models/subscriptions.ts), not a digest schedule.
+const DIGEST_CADENCES = ["daily", "weekly", "monthly"];
 
 export async function getAllUsers() {
     const all_users = await db.select().from(users);
@@ -15,20 +20,22 @@ export async function getAllUsers() {
     //const handles = JSON.parse(all_users[0].handles);
 }
 
-export async function insertUser(
-    email: string,
-    handles: string[],
+// Step 1 of signup: checks the users-row fields (the digest schedule) and
+// throws on the first problem. Never touches the database. Handles are
+// validated separately, per writer, by validateSubscription.
+export function validateUser(
     cadence: string,
     time: string,
     day?: string,
     month?: string,
     dateOfMonth?: string,
 ) {
-    for (const handle of handles) {
-        if (!(await isValidHandle(handle))) {
-            throw new HandleValidationError(`Invalid handle: ${handle}`);
-        }
+    if (!DIGEST_CADENCES.includes(cadence.trim().toLowerCase())) {
+        throw new CadenceValidationError(
+            `Invalid digest cadence. Options: ${DIGEST_CADENCES.join(", ")}`,
+        );
     }
+
     const cleanTime = time.trim();
     const timePattern = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
     if (!timePattern.test(cleanTime)) {
@@ -93,16 +100,49 @@ export async function insertUser(
     ) {
         throw new DayValidationError("Invalid day of the week");
     }
+}
 
-    await db.insert(users).values({
+
+/*export function insertUserTx(
+    tx: Tx,
+    email: string,
+    handles: string[],
+    cadence: string,
+    time: string,
+    day?: string,
+    monht?: string,
+    dateOfMonth?: string
+) {
+    tx.insert(users).values({
         email: email,
         handles: handles,
         cadence: cadence,
         day: day,
         time: time,
+        month: monht,
+        dateOfMonth: dateOfMonth
+    }).run();
+}*/
+
+export function insertUserTx(
+    tx: Tx,
+    email: string,
+    handles: string[],
+    cadence: string,
+    time: string,
+    day?: string,
+    month?: string,
+    dateOfMonth?: string
+) {
+    tx.insert(users).values({
+        email: email,
+        handles: handles,
+        cadence: cadence,
+        time: time,
+        day: day,
         month: month,
-        dateOfMonth: dateOfMonth,
-    });
+        dateOfMonth: dateOfMonth
+    }).run()
 }
 
 export async function getUserByEmail(email: string) {
@@ -111,121 +151,38 @@ export async function getUserByEmail(email: string) {
     return user;
 }
 
-export async function deleteUserByEmail(email: string) {
+export function deleteUserByEmail(tx: Tx, email: string) {
     //const rows = await db.select({ email: users.email }).from(users);
-    const result = await db.delete(users).where(eq(users.email, email));
-    return result;
+    return tx.delete(users).where(eq(users.email, email)).run();
 }
 
-// Shared by PUT (route validates every field is present first, so this ends
-// up setting all of them) and PATCH (only whichever fields were sent get
-// included) — one atomic update either way.
-export async function updateAll(
-    oldEmail: string,
-    newEmail?: string,
-    updatedHandles?: string[],
-    updatedCadence?: string,
-    updatedTime?: string,
-    updatedDay?: string,
-    updatedMonth?: string,
-    updatedDateOfMonth?: string,
+
+// Write only, for PUT: replaces the whole schedule on an existing users row.
+// Call inside db.transaction((tx) => ...) AFTER validateUser has passed.
+// Email is never changed here — it's the Google account identity.
+// Empty day/month/dateOfMonth are stored as null so switching e.g. monthly
+// -> daily clears the old monthly settings instead of leaving them behind.
+// Returns the RunResult; `changes === 0` means no user with that email.
+export function updateUserTx(
+    tx: Tx,
+    email: string,
+    handles: string[],
+    cadence: string,
+    time: string,
+    day?: string,
+    month?: string,
+    dateOfMonth?: string,
 ) {
-    //const user = await db.select().from(users).where(eq(users.email, oldEmail));
-
-    if (updatedHandles !== undefined) {
-        for (const handle of updatedHandles) {
-            if (!(await isValidHandle(handle))) {
-                throw new HandleValidationError(`Invalid handle: ${handle}`);
-            }
-        }
-    }
-
-    if (updatedTime !== undefined) {
-        const cleanTime = updatedTime.trim();
-        const timePattern = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;
-        if (!timePattern.test(cleanTime)) {
-            throw new TimeValidationError(
-                "Enter the time in 24 hr format - HH:MM.",
-            );
-        }
-    }
-
-    const daysOfWeekMap = [
-        "Sunday",
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-    ];
-
-    const monthsOfYear = [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-    ];
-
-    if (
-        updatedDay &&
-        !daysOfWeekMap.some(
-            (day) => day.toLowerCase() === updatedDay.toLowerCase(),
-        )
-    ) {
-        throw new DayValidationError("Invalid day of the week");
-    }
-
-    if (
-        updatedCadence !== undefined &&
-        updatedCadence.toLowerCase() === "monthly"
-    ) {
-        const monthIndex = monthsOfYear.findIndex(
-            (m) => m.toLowerCase() === updatedMonth?.toLowerCase(),
-        );
-
-        if (monthIndex === -1) {
-            throw new MonthValidationError("Invalid Month");
-        }
-
-        const currentYear = new Date().getFullYear();
-        const daysInMonth = new Date(currentYear, monthIndex + 1, 0).getDate();
-
-        if (updatedDateOfMonth !== undefined) {
-            if (
-                Number(updatedDateOfMonth.trim().slice(0, 2)) < 1 ||
-                Number(updatedDateOfMonth.trim().slice(0, 2)) > daysInMonth
-            ) {
-                throw new DateOfMonthValidationError(
-                    `Invalid Date: ${updatedDateOfMonth}`,
-                );
-            }
-        }
-    }
-
-    const result = await db
+    return tx
         .update(users)
         .set({
-            ...(newEmail !== undefined && { email: newEmail }),
-            ...(updatedHandles !== undefined && { handles: updatedHandles }),
-            ...(updatedCadence !== undefined && { cadence: updatedCadence }),
-            ...(updatedTime !== undefined && { time: updatedTime }),
-            ...(updatedDay !== undefined && { day: updatedDay }),
-            ...(updatedMonth !== undefined && { month: updatedMonth }),
-            ...(updatedDateOfMonth !== undefined &&
-                updatedDateOfMonth !== "" && {
-                    dateOfMonth: updatedDateOfMonth,
-                }),
+            handles: handles,
+            cadence: cadence,
+            time: time,
+            day: day || null,
+            month: month || null,
+            dateOfMonth: dateOfMonth || null,
         })
-        .where(eq(users.email, oldEmail));
-
-    return result;
+        .where(eq(users.email, email))
+        .run();
 }

@@ -15,6 +15,13 @@
       "when": 1794431137645,
       "tag": "0001_lying_doomsday",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794767619699,
+      "tag": "0002_add_subscriptions",
+      "breakpoints": true
     }
   ]
 }

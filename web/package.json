@@ -7,7 +7,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "drizzle-kit migrate && next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "deploy": "drizzle-kit migrate && pm2 startOrReload ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop ecosystem.config.cjs",
+    "pm2:logs": "pm2 logs readloop"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
@@ -20,9 +24,10 @@
     "drizzle-orm": "^0.45.3",
     "googleapis": "^183.0.0",
     "groq-sdk": "^1.6.0",
-    "next": "^16.4.2",
+    "next": "^16.4.6",
     "next-auth": "^5.0.0-beta.32",
     "node-cron": "^4.6.0",
+    "pm2": "^7.1.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "rss-parser": "^3.13.0"
@@ -34,7 +39,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.0",
+    "eslint-config-next": "^16.4.6",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",
